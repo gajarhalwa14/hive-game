@@ -1,0 +1,1609 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Hive (Single Player vs Bot)</title>
+  <style>
+    :root{
+      --bg1:#d7c6a7;
+      --bg2:#cbb48f;
+      --ink:#1a1a1a;
+      --panel:#f3eadb;
+      --panel2:#e8dcc9;
+      --accent:#44b0ff;
+      --accent2:#7ae3ff;
+      --danger:#ff4d4d;
+      --ok:#52d273;
+
+      --tile-white:#f3f0e8;
+      --tile-black:#1f2226;
+      --tile-shadow: rgba(0,0,0,.25);
+
+      --p1:#f5f1e6; /* player tiles */
+      --p2:#1f2226; /* bot tiles */
+      --p1-ink:#1b1b1b;
+      --p2-ink:#f3f3f3;
+
+      --gold:#d0a93a;
+      --purple:#7b61ff;
+      --green:#4bd37b;
+      --orange:#ffb24d;
+      --blue:#55c8ff;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--ink); }
+
+    /* wood-ish background */
+    body{
+      background:
+        radial-gradient(1200px 800px at 25% 15%, rgba(255,255,255,.25), transparent 60%),
+        radial-gradient(900px 600px at 75% 65%, rgba(255,255,255,.18), transparent 55%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 12px, rgba(0,0,0,.02) 12px 18px),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      overflow:hidden;
+    }
+
+    .app{
+      height:100%;
+      display:grid;
+      grid-template-columns: 320px 1fr;
+    }
+
+    .sidebar{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-right: 1px solid rgba(0,0,0,.08);
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      box-shadow: 10px 0 24px rgba(0,0,0,.10);
+      z-index:2;
+    }
+
+    .title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .title h1{
+      font-size:18px;
+      margin:0;
+      letter-spacing:.2px;
+    }
+    .pill{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      background: rgba(0,0,0,.06);
+    }
+
+    .status{
+      padding:10px 12px;
+      border-radius:14px;
+      background: rgba(255,255,255,.65);
+      border:1px solid rgba(0,0,0,.08);
+      box-shadow: 0 10px 20px rgba(0,0,0,.06);
+    }
+    .status .row{ display:flex; justify-content:space-between; gap:10px; }
+    .status .row + .row{ margin-top:6px; }
+    .status b{ font-weight:650; }
+    .small{ font-size:12px; opacity:.8; }
+
+    .invWrap{
+      padding:12px;
+      border-radius:16px;
+      background: rgba(255,255,255,.55);
+      border:1px solid rgba(0,0,0,.08);
+      box-shadow: 0 10px 20px rgba(0,0,0,.06);
+    }
+    .invTitle{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .invTitle h2{ font-size:13px; margin:0; opacity:.85; }
+    .invTitle .hint{ font-size:12px; opacity:.7; }
+
+    .invGrid{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:10px;
+    }
+    .invBtn{
+      cursor:pointer;
+      user-select:none;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 10px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.10);
+      background: rgba(255,255,255,.75);
+      transition: transform .08s ease, box-shadow .08s ease, border-color .08s ease;
+      box-shadow: 0 6px 14px rgba(0,0,0,.06);
+    }
+    .invBtn:hover{ transform: translateY(-1px); box-shadow: 0 10px 18px rgba(0,0,0,.08); }
+    .invBtn.selected{
+      border-color: rgba(68,176,255,.8);
+      box-shadow: 0 0 0 3px rgba(68,176,255,.25), 0 10px 18px rgba(0,0,0,.08);
+    }
+    .invLeft{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
+    .miniHex{
+      width:32px; height:32px;
+      flex:0 0 auto;
+      filter: drop-shadow(0 6px 8px rgba(0,0,0,.15));
+    }
+    .invName{
+      display:flex;
+      flex-direction:column;
+      line-height:1.1;
+      min-width:0;
+    }
+    .invName span{ font-size:13px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .invName em{ font-style:normal; font-size:12px; opacity:.7; }
+    .count{
+      font-size:12px;
+      padding:4px 8px;
+      border-radius:999px;
+      background: rgba(0,0,0,.06);
+      flex:0 0 auto;
+    }
+
+    .controls{
+      display:flex;
+      gap:10px;
+      margin-top:auto;
+    }
+    .btn{
+      cursor:pointer;
+      border:1px solid rgba(0,0,0,.10);
+      background: rgba(255,255,255,.75);
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:650;
+      font-size:13px;
+      box-shadow: 0 6px 14px rgba(0,0,0,.06);
+      transition: transform .08s ease, box-shadow .08s ease;
+      flex:1;
+      text-align:center;
+      user-select:none;
+    }
+    .btn:hover{ transform: translateY(-1px); box-shadow: 0 10px 18px rgba(0,0,0,.08); }
+    .btn:active{ transform: translateY(0px); }
+
+    .board{
+      position:relative;
+      height:100%;
+    }
+
+    canvas{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+
+    .toast{
+      position:absolute;
+      left:14px;
+      bottom:14px;
+      padding:10px 12px;
+      border-radius:14px;
+      background: rgba(255,255,255,.75);
+      border:1px solid rgba(0,0,0,.10);
+      box-shadow: 0 12px 28px rgba(0,0,0,.14);
+      font-size:13px;
+      max-width:min(680px, calc(100% - 28px));
+      pointer-events:none;
+      opacity:0;
+      transform: translateY(6px);
+      transition: opacity .18s ease, transform .18s ease;
+      z-index:3;
+    }
+    .toast.show{ opacity:1; transform: translateY(0px); }
+
+    .legend{
+      margin-top:10px;
+      font-size:12px;
+      opacity:.75;
+      line-height:1.35;
+    }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid rgba(0,0,0,.12);
+      background: rgba(255,255,255,.7);
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="title">
+      <h1>Hive — vs Bot</h1>
+      <div class="pill" id="turnPill">Your turn</div>
+    </div>
+
+    <div class="status">
+      <div class="row"><div><b>You</b> (White)</div><div id="youInfo" class="small"></div></div>
+      <div class="row"><div><b>Bot</b> (Black)</div><div id="botInfo" class="small"></div></div>
+      <div class="row small"><div id="ruleInfo">Place your Queen by turn 4. You can’t move until your Queen is down.</div><div></div></div>
+    </div>
+
+    <div class="invWrap">
+      <div class="invTitle">
+        <h2>Your inventory</h2>
+        <div class="hint">Click a piece → click board</div>
+      </div>
+      <div class="invGrid" id="invGrid"></div>
+      <div class="legend">
+        • Click your piece on the board to see moves.<br>
+        • Drag to pan, wheel to zoom.<br>
+        • <span class="kbd">Esc</span> clears selection.
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="btn" id="resetBtn">Reset</div>
+      <div class="btn" id="undoBtn">Undo</div>
+    </div>
+  </aside>
+
+  <main class="board">
+    <canvas id="c"></canvas>
+    <div class="toast" id="toast"></div>
+  </main>
+</div>
+
+<script>
+/**
+ * Hive (base set) single-player vs bot
+ * Pieces: Queen, Ant x3, Spider x2, Beetle x2, Grasshopper x3 per player.
+ * Coordinates: axial hex (q,r). Neighbors: 6 directions.
+ *
+ * Notes:
+ * - This is a complete playable rules implementation for the base game.
+ * - The bot uses minimax depth 2 with heuristics; it plays "reasonably" but isn't tournament-strong.
+ */
+
+// ---------- Utilities ----------
+const DIRS = [
+  [ 1, 0], [ 1,-1], [ 0,-1],
+  [-1, 0], [-1, 1], [ 0, 1]
+];
+const keyOf = (q,r)=> `${q},${r}`;
+const parseKey = (k)=> k.split(",").map(Number);
+const add = (a,b)=> [a[0]+b[0], a[1]+b[1]];
+const eq = (a,b)=> a[0]===b[0] && a[1]===b[1];
+
+function shuffleInPlace(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=(Math.random()*(i+1))|0;
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+// ---------- Game State ----------
+const PIECES = ["Q","A","S","B","G"]; // Queen, Ant, Spider, Beetle, Grasshopper
+const PIECE_NAMES = {Q:"Queen", A:"Ant", S:"Spider", B:"Beetle", G:"Grasshopper"};
+const PIECE_COUNTS = {Q:1, A:3, S:2, B:2, G:3};
+
+const WHITE="W", BLACK="B";
+
+function initialInventory(){
+  return {
+    [WHITE]: {Q:1,A:3,S:2,B:2,G:3},
+    [BLACK]: {Q:1,A:3,S:2,B:2,G:3},
+  };
+}
+
+function cloneState(s){
+  return {
+    turn: s.turn,
+    ply: s.ply,
+    inv: {
+      [WHITE]: {...s.inv[WHITE]},
+      [BLACK]: {...s.inv[BLACK]},
+    },
+    // board: Map key -> stack array bottom..top: [{t,color,id}]
+    board: new Map([...s.board.entries()].map(([k,stack])=> [k, stack.map(p=>({...p}))])),
+    nextId: s.nextId,
+    moveHistory: s.moveHistory.slice(),
+    queens: {
+      [WHITE]: s.queens[WHITE] ? [...s.queens[WHITE]] : null,
+      [BLACK]: s.queens[BLACK] ? [...s.queens[BLACK]] : null,
+    }
+  };
+}
+
+function makeInitialState(){
+  return {
+    turn: WHITE,  // White (player) starts
+    ply: 0,       // half-move count
+    inv: initialInventory(),
+    board: new Map(),
+    nextId: 1,
+    moveHistory: [],
+    queens: {[WHITE]:null,[BLACK]:null},
+  };
+}
+
+// ---------- Rules Helpers ----------
+function topAt(state, q,r){
+  const st = state.board.get(keyOf(q,r));
+  if(!st || st.length===0) return null;
+  return st[st.length-1];
+}
+function stackAt(state, q,r){
+  return state.board.get(keyOf(q,r)) || [];
+}
+function isOccupied(state, q,r){
+  const st = state.board.get(keyOf(q,r));
+  return !!(st && st.length);
+}
+function neighbors(q,r){
+  return DIRS.map(d=> [q+d[0], r+d[1]]);
+}
+function anyPieces(state){
+  return state.board.size>0;
+}
+function playerPlacedCount(state, color){
+  // how many pieces of that color are on board
+  let n=0;
+  for(const st of state.board.values()){
+    for(const p of st) if(p.color===color) n++;
+  }
+  return n;
+}
+function playerTurnNumber(state, color){
+  // number of turns taken by this color so far
+  // since White starts, turnNumber = floor((ply + (color==WHITE?1:0))/2) ??? Let's compute from history:
+  // We store each ply as a move by current turn. So:
+  let n=0;
+  for(const mv of state.moveHistory){
+    if(mv.color===color) n++;
+  }
+  return n+1; // next turn number (1-indexed) for that player
+}
+
+function getAllOccupiedKeys(state){
+  return [...state.board.keys()];
+}
+
+function hiveConnectedIfRemoveTop(state, fromQ, fromR){
+  // Removing top piece from stack at from.
+  const k=keyOf(fromQ,fromR);
+  const stack = state.board.get(k);
+  if(!stack || stack.length===0) return true;
+
+  // If removing would leave that hex still occupied (stack beneath), connectivity doesn't change.
+  if(stack.length>1) return true;
+
+  // Build set of occupied after removal
+  const occ = new Set();
+  for(const [kk,st] of state.board.entries()){
+    if(kk===k) continue;
+    if(st.length) occ.add(kk);
+  }
+  if(occ.size<=1) return true;
+
+  // BFS from arbitrary occupied
+  const start = occ.values().next().value;
+  const [sq,sr]=parseKey(start);
+  const seen = new Set([start]);
+  const queue=[[sq,sr]];
+  while(queue.length){
+    const [q,r]=queue.pop();
+    for(const [nq,nr] of neighbors(q,r)){
+      const nk=keyOf(nq,nr);
+      if(occ.has(nk) && !seen.has(nk)){
+        seen.add(nk);
+        queue.push([nq,nr]);
+      }
+    }
+  }
+  return seen.size===occ.size;
+}
+
+function freedomToMove(state, from, to){
+  // Sliding constraint between adjacent hexes (from -> to).
+  // In hex grids, there are two "side" neighbors that form the gap.
+  // If both are occupied, you cannot slide through.
+  const [fq,fr]=from, [tq,tr]=to;
+  // Determine direction index
+  let dirIdx=-1;
+  for(let i=0;i<6;i++){
+    if(fq+DIRS[i][0]===tq && fr+DIRS[i][1]===tr){ dirIdx=i; break; }
+  }
+  if(dirIdx<0) return false;
+  const left = DIRS[(dirIdx+5)%6];
+  const right= DIRS[(dirIdx+1)%6];
+  const leftHex = [fq+left[0], fr+left[1]];
+  const rightHex= [fq+right[0], fr+right[1]];
+  const leftOcc = isOccupied(state, leftHex[0], leftHex[1]);
+  const rightOcc= isOccupied(state, rightHex[0], rightHex[1]);
+  return !(leftOcc && rightOcc);
+}
+
+function placementCandidates(state){
+  // Empty hexes adjacent to at least one occupied hex
+  const cand = new Set();
+  if(!anyPieces(state)){
+    cand.add(keyOf(0,0));
+    return cand;
+  }
+  for(const kk of state.board.keys()){
+    const [q,r]=parseKey(kk);
+    for(const [nq,nr] of neighbors(q,r)){
+      if(!isOccupied(state,nq,nr)){
+        cand.add(keyOf(nq,nr));
+      }
+    }
+  }
+  return cand;
+}
+
+function legalPlacementsFor(state, color){
+  const cand = placementCandidates(state);
+  const res = [];
+  if(!anyPieces(state)){
+    return [[0,0]];
+  }
+
+  // Special case: second player's first placement must touch the first piece, so we allow adjacency to opponent on their first placement.
+  const hasAnyOfColor = playerPlacedCount(state,color) > 0;
+
+  for(const k of cand){
+    const [q,r]=parseKey(k);
+
+    // must touch at least one tile (true by construction, except maybe initial)
+    // after your first piece is down, placement must touch at least one of your own tiles
+    if(hasAnyOfColor){
+      let touchesOwn=false;
+      let touchesOpp=false;
+      for(const [nq,nr] of neighbors(q,r)){
+        const st = stackAt(state,nq,nr);
+        if(st.length){
+          const top = st[st.length-1];
+          if(top.color===color) touchesOwn=true;
+          else touchesOpp=true;
+        }
+      }
+      if(!touchesOwn) continue;
+      if(touchesOpp) continue; // cannot touch opponent tiles
+    }
+    res.push([q,r]);
+  }
+  return res;
+}
+
+function mustPlaceQueenNow(state, color){
+  if(state.inv[color].Q===0) return false;
+  const turnNo = playerTurnNumber(state,color);
+  // If this is your 4th turn (i.e., you're about to make move #4) and you haven't placed queen yet:
+  const queenPlaced = !!state.queens[color];
+  return (!queenPlaced && turnNo===4);
+}
+
+function canMoveYet(state, color){
+  return !!state.queens[color];
+}
+
+function isQueenSurrounded(state, color){
+  const pos = state.queens[color];
+  if(!pos) return false;
+  const [q,r]=pos;
+  for(const [nq,nr] of neighbors(q,r)){
+    if(!isOccupied(state,nq,nr)) return false;
+  }
+  return true;
+}
+
+function gameResult(state){
+  const w = isQueenSurrounded(state, WHITE);
+  const b = isQueenSurrounded(state, BLACK);
+  if(w && b) return "draw";
+  if(b) return "whiteWins";
+  if(w) return "blackWins";
+  return null;
+}
+
+// ---------- Move Generation ----------
+/**
+ * Move object shapes:
+ * - Place: {kind:"place", color, pieceType, to:[q,r]}
+ * - Move : {kind:"move",  color, from:[q,r], to:[q,r]}  // moves top piece from stack
+ */
+
+function legalMoves(state, color){
+  const result = [];
+  const resResult = gameResult(state);
+  if(resResult) return result;
+
+  const mustQ = mustPlaceQueenNow(state,color);
+
+  // placements (always allowed if you have pieces left)
+  const placements = legalPlacementsFor(state,color);
+  for(const pt of PIECES){
+    if(state.inv[color][pt] <= 0) continue;
+    if(mustQ && pt!=="Q") continue;
+    for(const to of placements){
+      // Additional commonly used restriction: cannot place adjacent to opponent Queen until both Queens are placed.
+      // Many rule sheets include this; we enforce it to reduce early cheap traps.
+      if(!state.queens[WHITE] || !state.queens[BLACK]){
+        const opp = (color===WHITE)?BLACK:WHITE;
+        const oppQ = state.queens[opp];
+        if(oppQ){
+          const [oq,or]=oppQ;
+          for(const [nq,nr] of neighbors(to[0],to[1])){
+            if(nq===oq && nr===or) { // adjacent to opponent queen
+              // allow only if both queens already placed (not true here)
+              // exception: if this would be the second player's first placement and the only tile is the opponent queen — still disallow (keeps consistent with that rule)
+              // If you want the looser ruleset, delete this block.
+              // We'll disallow.
+              continue;
+            }
+          }
+          // above continue doesn't break; so do explicit test
+          let adjOppQueen=false;
+          for(const [nq,nr] of neighbors(to[0],to[1])){
+            if(nq===oq && nr===or) { adjOppQueen=true; break; }
+          }
+          if(adjOppQueen) continue;
+        }
+      }
+
+      result.push({kind:"place", color, pieceType:pt, to});
+    }
+  }
+
+  // movement (only after own queen placed, and only if not forced to place queen)
+  if(canMoveYet(state,color) && !mustQ){
+    for(const [kk,stack] of state.board.entries()){
+      if(!stack.length) continue;
+      const top = stack[stack.length-1];
+      if(top.color!==color) continue;
+
+      const [fq,fr]=parseKey(kk);
+
+      // pinned: pieces under beetles can't move because they're not on top
+      // (already handled: only top moves)
+
+      // one hive rule: removing top must keep hive connected
+      if(!hiveConnectedIfRemoveTop(state, fq,fr)) continue;
+
+      // generate destinations by piece type and height
+      const height = stack.length-1; // 0 on ground, >0 on top
+      const pieceType = top.t;
+
+      const dests = legalDestinationsForPiece(state, {t:pieceType,color, height}, [fq,fr]);
+      for(const to of dests){
+        result.push({kind:"move", color, from:[fq,fr], to});
+      }
+    }
+  }
+
+  return result;
+}
+
+function legalDestinationsForPiece(state, piece, from){
+  const [fq,fr]=from;
+  const t = piece.t;
+  const height = piece.height;
+
+  if(t==="Q"){
+    return queenMoves(state, from, height);
+  }
+  if(t==="B"){
+    return beetleMoves(state, from, height);
+  }
+  if(t==="G"){
+    return grasshopperMoves(state, from);
+  }
+  if(t==="A"){
+    return antMoves(state, from, height);
+  }
+  if(t==="S"){
+    return spiderMoves(state, from, height);
+  }
+  return [];
+}
+
+function queenMoves(state, from, height){
+  // Queen moves 1 adjacent to empty, sliding; if on top (rare), treat like beetle-on-top? In base Hive, Queen can't climb.
+  // We'll disallow queen moving onto occupied ever.
+  const [fq,fr]=from;
+  const res=[];
+  for(const [dq,dr] of DIRS){
+    const to=[fq+dq, fr+dr];
+    if(isOccupied(state,to[0],to[1])) continue;
+    if(height===0 && !freedomToMove(state, from, to)) continue;
+    // must remain adjacent to hive during move (for sliding movers, this is typically ensured by legal board topology;
+    // but we'll enforce that destination is adjacent to at least one occupied tile after removing piece)
+    res.push(to);
+  }
+  // filter: destination must be adjacent to at least one occupied tile (hive contact)
+  return res.filter(to=>{
+    for(const [nq,nr] of neighbors(to[0],to[1])){
+      if(isOccupied(state,nq,nr) && !(nq===from[0] && nr===from[1] && stackAt(state,from[0],from[1]).length===1)){
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+function beetleMoves(state, from, height){
+  // Beetle moves 1, can move onto occupied (climb).
+  // Sliding rule applies only when on ground; when on top, beetle can "step" regardless of tight gaps.
+  const [fq,fr]=from;
+  const res=[];
+  for(const [dq,dr] of DIRS){
+    const to=[fq+dq, fr+dr];
+    if(height===0){
+      // If moving to empty, sliding restriction applies
+      if(!isOccupied(state,to[0],to[1]) && !freedomToMove(state, from, to)) continue;
+      // if moving to occupied, we allow even if tight (many rules allow; if you want stricter, add freedom check here too)
+    }
+    res.push(to);
+  }
+  // destination must be adjacent to hive after move is usually always true; allow.
+  return res;
+}
+
+function grasshopperMoves(state, from){
+  // Jump in a straight line over >=1 occupied, landing on first empty.
+  const [fq,fr]=from;
+  const res=[];
+  for(const [dq,dr] of DIRS){
+    let q=fq+dq, r=fr+dr;
+    if(!isOccupied(state,q,r)) continue; // must jump over at least one
+    while(isOccupied(state,q,r)){
+      q+=dq; r+=dr;
+    }
+    res.push([q,r]);
+  }
+  return res;
+}
+
+function antMoves(state, from, height){
+  // Ant: move to any reachable empty space around the hive by sliding (cannot move through tight gaps).
+  // If ant is on top (shouldn't happen unless beetle moved off it? Actually beetle stacks; ant could be under beetle, but then it's not top so it won't move).
+  // So height effectively 0 always.
+  const start = from;
+  const res=[];
+  // BFS over empty cells adjacent to hive, with freedom constraints.
+  const visited = new Set();
+  const q0=start[0], r0=start[1];
+
+  // Temporarily treat 'from' as empty (piece lifted)
+  const isOccExceptFrom = (q,r)=> {
+    if(q===q0 && r===r0){
+      // if stack would still remain occupied after lifting top? But ants only on top; assume stack length 1 here.
+      const st = stackAt(state,q0,r0);
+      if(st.length>1) return true;
+      return false;
+    }
+    return isOccupied(state,q,r);
+  };
+
+  // Candidate empty cells are those adjacent to at least one occupied (hive contact)
+  function hasHiveContact(q,r){
+    for(const [nq,nr] of neighbors(q,r)){
+      if(isOccExceptFrom(nq,nr)) return true;
+    }
+    return false;
+  }
+
+  const frontier=[];
+  // Start from neighboring empties that are reachable by one slide
+  for(const [dq,dr] of DIRS){
+    const nq=q0+dq, nr=r0+dr;
+    if(isOccExceptFrom(nq,nr)) continue;
+    if(!freedomToMove_lifted(from,[nq,nr])) continue;
+    if(!hasHiveContact(nq,nr)) continue;
+    const k=keyOf(nq,nr);
+    visited.add(k);
+    frontier.push([nq,nr]);
+    res.push([nq,nr]);
+  }
+
+  function freedomToMove_lifted(a,b){
+    // freedomToMove but using isOccExceptFrom
+    const [fq,fr]=a, [tq,tr]=b;
+    let dirIdx=-1;
+    for(let i=0;i<6;i++){
+      if(fq+DIRS[i][0]===tq && fr+DIRS[i][1]===tr){ dirIdx=i; break; }
+    }
+    if(dirIdx<0) return false;
+    const left = DIRS[(dirIdx+5)%6];
+    const right= DIRS[(dirIdx+1)%6];
+    const leftHex = [fq+left[0], fr+left[1]];
+    const rightHex= [fq+right[0], fr+right[1]];
+    const leftOcc = isOccExceptFrom(leftHex[0], leftHex[1]);
+    const rightOcc= isOccExceptFrom(rightHex[0], rightHex[1]);
+    return !(leftOcc && rightOcc);
+  }
+
+  while(frontier.length){
+    const cur = frontier.shift();
+    for(const [dq,dr] of DIRS){
+      const nq=cur[0]+dq, nr=cur[1]+dr;
+      if(isOccExceptFrom(nq,nr)) continue;
+      const kk=keyOf(nq,nr);
+      if(visited.has(kk)) continue;
+      if(!freedomToMove_lifted(cur,[nq,nr])) continue;
+      if(!hasHiveContact(nq,nr)) continue;
+      visited.add(kk);
+      frontier.push([nq,nr]);
+      res.push([nq,nr]);
+    }
+  }
+
+  return res;
+}
+
+function spiderMoves(state, from, height){
+  // Spider: exactly 3 steps, sliding, cannot backtrack / revisit, must stay in contact with hive.
+  const [q0,r0]=from;
+
+  const isOccExceptFrom = (q,r)=> {
+    if(q===q0 && r===r0){
+      const st = stackAt(state,q0,r0);
+      if(st.length>1) return true;
+      return false;
+    }
+    return isOccupied(state,q,r);
+  };
+
+  function hasHiveContact(q,r){
+    for(const [nq,nr] of neighbors(q,r)){
+      if(isOccExceptFrom(nq,nr)) return true;
+    }
+    return false;
+  }
+
+  function freedom(a,b){
+    const [fq,fr]=a, [tq,tr]=b;
+    let dirIdx=-1;
+    for(let i=0;i<6;i++){
+      if(fq+DIRS[i][0]===tq && fr+DIRS[i][1]===tr){ dirIdx=i; break; }
+    }
+    if(dirIdx<0) return false;
+    const left = DIRS[(dirIdx+5)%6];
+    const right= DIRS[(dirIdx+1)%6];
+    const leftHex = [fq+left[0], fr+left[1]];
+    const rightHex= [fq+right[0], fr+right[1]];
+    const leftOcc = isOccExceptFrom(leftHex[0], leftHex[1]);
+    const rightOcc= isOccExceptFrom(rightHex[0], rightHex[1]);
+    return !(leftOcc && rightOcc);
+  }
+
+  const res=[];
+  const start=[q0,r0];
+
+  function dfs(pos, depth, visited){
+    if(depth===3){
+      res.push(pos);
+      return;
+    }
+    for(const [dq,dr] of DIRS){
+      const nxt=[pos[0]+dq, pos[1]+dr];
+      if(isOccExceptFrom(nxt[0],nxt[1])) continue;
+      const kk=keyOf(nxt[0],nxt[1]);
+      if(visited.has(kk)) continue;
+      if(!freedom(pos,nxt)) continue;
+      if(!hasHiveContact(nxt[0],nxt[1])) continue;
+      visited.add(kk);
+      dfs(nxt, depth+1, visited);
+      visited.delete(kk);
+    }
+  }
+
+  const vis = new Set([keyOf(q0,r0)]);
+  dfs(start, 0, vis);
+
+  // Remove starting square if somehow included
+  return res.filter(p=> !(p[0]===q0 && p[1]===r0));
+}
+
+// ---------- Apply / Revert Moves ----------
+function applyMove(state, mv){
+  const s = state;
+  const color = mv.color;
+  if(mv.kind==="place"){
+    const {pieceType,to} = mv;
+    // place new piece
+    const id = s.nextId++;
+    const p = {t:pieceType, color, id};
+    const k = keyOf(to[0],to[1]);
+    const stack = s.board.get(k) || [];
+    stack.push(p);
+    s.board.set(k, stack);
+    s.inv[color][pieceType]--;
+    if(pieceType==="Q"){
+      s.queens[color] = [to[0],to[1]];
+    }
+    s.moveHistory.push({ ...mv, id });
+  }else{
+    const {from,to} = mv;
+    const fk = keyOf(from[0],from[1]);
+    const tk = keyOf(to[0],to[1]);
+    const fstack = s.board.get(fk);
+    const piece = fstack.pop(); // top
+    if(fstack.length===0) s.board.delete(fk);
+    else s.board.set(fk,fstack);
+
+    const tstack = s.board.get(tk) || [];
+    tstack.push(piece);
+    s.board.set(tk,tstack);
+
+    // If moved queen, update queen pos
+    if(piece.t==="Q"){
+      s.queens[color] = [to[0],to[1]];
+    }
+
+    s.moveHistory.push({ ...mv, id: piece.id, pieceType: piece.t });
+  }
+
+  s.ply++;
+  s.turn = (s.turn===WHITE)?BLACK:WHITE;
+}
+
+function undoLastPly(state){
+  const s=state;
+  if(s.moveHistory.length===0) return false;
+  // undo one ply
+  const last = s.moveHistory.pop();
+  s.ply--;
+  s.turn = last.color; // revert turn to mover
+
+  if(last.kind==="place"){
+    const {to, pieceType, color, id} = last;
+    const k = keyOf(to[0],to[1]);
+    const st = s.board.get(k);
+    // remove top matching id (should be top)
+    const popped = st.pop();
+    if(st.length===0) s.board.delete(k);
+    else s.board.set(k,st);
+    s.inv[color][pieceType]++;
+
+    if(pieceType==="Q"){
+      s.queens[color] = null;
+    }
+    // nextId: we won't perfectly rewind ids; fine for gameplay.
+  }else{
+    const {from,to,color,id,pieceType} = last;
+    const tk=keyOf(to[0],to[1]);
+    const fk=keyOf(from[0],from[1]);
+    const tstack = s.board.get(tk);
+    const piece = tstack.pop();
+    if(tstack.length===0) s.board.delete(tk);
+    else s.board.set(tk,tstack);
+
+    const fstack = s.board.get(fk) || [];
+    fstack.push(piece);
+    s.board.set(fk,fstack);
+
+    if(piece.t==="Q"){
+      s.queens[color] = [from[0],from[1]];
+    }
+  }
+  return true;
+}
+
+// ---------- Bot (Minimax depth 2) ----------
+function evaluate(state, perspectiveColor){
+  // Positive is good for perspectiveColor.
+  const opp = (perspectiveColor===WHITE)?BLACK:WHITE;
+
+  const res = gameResult(state);
+  if(res==="whiteWins") return (perspectiveColor===WHITE)? 1e9 : -1e9;
+  if(res==="blackWins") return (perspectiveColor===BLACK)? 1e9 : -1e9;
+  if(res==="draw") return 0;
+
+  // Heuristics
+  // 1) Queen danger: count occupied neighbors around each queen.
+  function queenRingCount(color){
+    const qp = state.queens[color];
+    if(!qp) return 0;
+    let c=0;
+    for(const [nq,nr] of neighbors(qp[0],qp[1])) if(isOccupied(state,nq,nr)) c++;
+    return c;
+  }
+
+  const myQ = queenRingCount(perspectiveColor);
+  const opQ = queenRingCount(opp);
+
+  // 2) Mobility: number of legal moves (capped)
+  const myMoves = Math.min(legalMoves(state, perspectiveColor).length, 60);
+  const opMoves = Math.min(legalMoves(state, opp).length, 60);
+
+  // 3) Development: pieces placed
+  const myPlaced = playerPlacedCount(state, perspectiveColor);
+  const opPlaced = playerPlacedCount(state, opp);
+
+  // 4) Immediate threats: if opponent queen is at 5 surrounded, very good; if mine at 5, very bad.
+  const threat = (opQ===5? 250 : 0) - (myQ===5? 260 : 0);
+
+  // 5) Queen placed bonus (enables mobility)
+  const myQueenPlaced = state.queens[perspectiveColor] ? 1 : 0;
+  const opQueenPlaced = state.queens[opp] ? 1 : 0;
+
+  return (
+    // winning pressure
+    (opQ * 70) - (myQ * 85) +
+    // mobility
+    (myMoves * 3) - (opMoves * 3.5) +
+    // development
+    (myPlaced * 6) - (opPlaced * 6) +
+    // queen timing
+    (myQueenPlaced * 20) - (opQueenPlaced * 20) +
+    threat
+  );
+}
+
+function chooseBotMove(state){
+  const botColor = BLACK;
+  const moves = legalMoves(state, botColor);
+  if(!moves.length) return null;
+
+  // Small ordering helps minimax
+  const ordered = moves.slice().sort((a,b)=>{
+    const scoreA = moveOrderScore(state,a);
+    const scoreB = moveOrderScore(state,b);
+    return scoreB-scoreA;
+  });
+
+  let best = ordered[0];
+  let bestVal = -Infinity;
+
+  // depth 2 minimax: bot -> player
+  for(const mv of ordered){
+    const s1 = cloneState(state);
+    applyMove(s1, mv);
+
+    const replyMoves = legalMoves(s1, WHITE);
+    let worstForBot = Infinity;
+
+    if(replyMoves.length===0){
+      worstForBot = evaluate(s1, botColor);
+    }else{
+      // Player chooses best for player (worst for bot)
+      // limit branching a bit for speed: evaluate top N replies by ordering
+      const replies = replyMoves.slice().sort((a,b)=> moveOrderScore(s1,b)-moveOrderScore(s1,a)).slice(0, 20);
+      for(const rm of replies){
+        const s2 = cloneState(s1);
+        applyMove(s2, rm);
+        const val = evaluate(s2, botColor);
+        if(val < worstForBot) worstForBot = val;
+      }
+    }
+
+    if(worstForBot > bestVal){
+      bestVal = worstForBot;
+      best = mv;
+    }
+  }
+  return best;
+}
+
+function moveOrderScore(state, mv){
+  // prefer moves that increase pressure on opponent queen / reduce own queen danger, and placing queen when forced
+  const color = mv.color;
+  const opp = (color===WHITE)?BLACK:WHITE;
+
+  function ring(color){
+    const qp = state.queens[color];
+    if(!qp) return 0;
+    let c=0;
+    for(const [nq,nr] of neighbors(qp[0],qp[1])) if(isOccupied(state,nq,nr)) c++;
+    return c;
+  }
+  const beforeOpp = ring(opp);
+  const beforeMe  = ring(color);
+
+  const s1 = cloneState(state);
+  applyMove(s1,mv);
+  const afterOpp = ring(opp);
+  const afterMe  = ring(color);
+
+  let sc = (afterOpp-beforeOpp)*40 - (afterMe-beforeMe)*45;
+
+  if(mv.kind==="place"){
+    if(mv.pieceType==="Q") sc += 15;
+    if(mv.pieceType==="B") sc += 8;
+    if(mv.pieceType==="A") sc += 6;
+    if(mv.pieceType==="G") sc += 5;
+  }else{
+    // moving beetles onto important stacks can be strong
+    const toStack = stackAt(state, mv.to[0], mv.to[1]);
+    if(toStack.length && topAt(state, mv.to[0], mv.to[1]).t==="Q") sc += 12;
+  }
+  return sc;
+}
+
+// ---------- Rendering (Canvas) ----------
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(canvas.clientWidth * dpr);
+  canvas.height= Math.floor(canvas.clientHeight * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener("resize", resize);
+
+const view = {
+  cx: 0,
+  cy: 0,
+  scale: 52, // hex size
+  panX: 0,
+  panY: 0
+};
+
+function axialToPixel(q,r){
+  // pointy-top axial to pixel
+  const size = view.scale;
+  const x = size * (Math.sqrt(3)*q + Math.sqrt(3)/2*r);
+  const y = size * (3/2*r);
+  return [x + view.panX + canvas.clientWidth/2, y + view.panY + canvas.clientHeight/2];
+}
+function pixelToAxial(x,y){
+  // inverse approx; then round to nearest hex
+  const size = view.scale;
+  const px = x - view.panX - canvas.clientWidth/2;
+  const py = y - view.panY - canvas.clientHeight/2;
+
+  const q = (Math.sqrt(3)/3 * px - 1/3 * py) / size;
+  const r = (2/3 * py) / size;
+  return hexRound(q,r);
+}
+function hexRound(q,r){
+  // cube rounding
+  let x=q, z=r, y=-x-z;
+  let rx=Math.round(x), ry=Math.round(y), rz=Math.round(z);
+  const x_diff=Math.abs(rx-x), y_diff=Math.abs(ry-y), z_diff=Math.abs(rz-z);
+  if(x_diff>y_diff && x_diff>z_diff) rx = -ry-rz;
+  else if(y_diff>z_diff) ry = -rx-rz;
+  else rz = -rx-ry;
+  return [rx,rz];
+}
+
+function hexPolygon(cx,cy,size){
+  const pts=[];
+  for(let i=0;i<6;i++){
+    const ang = Math.PI/180*(60*i - 30);
+    pts.push([cx + size*Math.cos(ang), cy + size*Math.sin(ang)]);
+  }
+  return pts;
+}
+
+function drawHex(pts, fill, stroke, lineW=2, alpha=1){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for(let i=1;i<6;i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+  if(fill){
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  if(stroke){
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = lineW;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawTileAt(q,r, stack){
+  const [x,y]=axialToPixel(q,r);
+  const size=view.scale*0.92;
+  const pts=hexPolygon(x,y,size);
+
+  // shadow
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.22)";
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetY = 8;
+  drawHex(pts, stack[stack.length-1].color===WHITE ? "rgba(243,240,232,.95)" : "rgba(31,34,38,.94)", "rgba(0,0,0,.25)", 2);
+  ctx.restore();
+
+  // outline again crisp
+  drawHex(pts, "transparent", "rgba(0,0,0,.18)", 2);
+
+  const top = stack[stack.length-1];
+  drawInsectIcon(x,y, top, stack.length);
+
+  // stack indicator
+  if(stack.length>1){
+    ctx.save();
+    ctx.font = "700 12px system-ui, sans-serif";
+    ctx.fillStyle = top.color===WHITE ? "rgba(0,0,0,.75)" : "rgba(255,255,255,.85)";
+    ctx.textAlign="right";
+    ctx.textBaseline="bottom";
+    ctx.fillText("+"+(stack.length-1), x+size*0.86, y+size*0.72);
+    ctx.restore();
+  }
+}
+
+function pieceColorInk(color){
+  return color===WHITE ? "rgba(0,0,0,.78)" : "rgba(255,255,255,.90)";
+}
+function pieceAccent(t){
+  if(t==="Q") return "rgba(208,169,58,.95)";
+  if(t==="A") return "rgba(85,200,255,.95)";
+  if(t==="S") return "rgba(255,178,77,.95)";
+  if(t==="B") return "rgba(75,211,123,.95)";
+  if(t==="G") return "rgba(123,97,255,.95)";
+  return "rgba(0,0,0,.6)";
+}
+
+function drawInsectIcon(x,y, piece, height){
+  // simple iconic glyph: letter + tiny "legs" motif
+  const t = piece.t;
+  const ink = pieceColorInk(piece.color);
+  const acc = pieceAccent(t);
+
+  ctx.save();
+  ctx.translate(x,y);
+
+  // decorative "legs"
+  ctx.strokeStyle = ink;
+  ctx.globalAlpha = .55;
+  ctx.lineWidth = 2;
+  for(let i=0;i<3;i++){
+    const dy = -10 + i*10;
+    ctx.beginPath();
+    ctx.moveTo(-18, dy);
+    ctx.lineTo(-30, dy-6);
+    ctx.moveTo(18, dy);
+    ctx.lineTo(30, dy-6);
+    ctx.stroke();
+  }
+
+  // main glyph
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = acc;
+  ctx.beginPath();
+  ctx.arc(0, -2, 18, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle = piece.color===WHITE ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.55)";
+  ctx.beginPath();
+  ctx.arc(0, -2, 14, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle = ink;
+  ctx.font = "800 18px system-ui, sans-serif";
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+  ctx.fillText(t, 0, -2);
+
+  ctx.restore();
+}
+
+// ---------- UI State ----------
+let state = makeInitialState();
+let selection = {
+  invPieceType: null,     // selected from inventory
+  boardFrom: null,        // selected board coordinate for moving
+  legalTargets: [],       // highlighted placements or moves
+  mode: null              // "place"|"move"
+};
+
+let lastToastTimer=null;
+function toast(msg){
+  const el=document.getElementById("toast");
+  el.textContent=msg;
+  el.classList.add("show");
+  clearTimeout(lastToastTimer);
+  lastToastTimer=setTimeout(()=>el.classList.remove("show"), 1800);
+}
+
+function updateSidebar(){
+  const pill = document.getElementById("turnPill");
+  const res = gameResult(state);
+  if(res==="whiteWins") pill.textContent = "You win!";
+  else if(res==="blackWins") pill.textContent = "Bot wins";
+  else if(res==="draw") pill.textContent = "Draw";
+  else pill.textContent = (state.turn===WHITE) ? "Your turn" : "Bot thinking…";
+
+  const youInfo = document.getElementById("youInfo");
+  const botInfo = document.getElementById("botInfo");
+  const yTurn = playerTurnNumber(state, WHITE);
+  const bTurn = playerTurnNumber(state, BLACK);
+  youInfo.textContent = `Turn ${yTurn} • Pieces on board: ${playerPlacedCount(state,WHITE)}`;
+  botInfo.textContent = `Turn ${bTurn} • Pieces on board: ${playerPlacedCount(state,BLACK)}`;
+
+  renderInventory();
+}
+
+function clearSelection(){
+  selection.invPieceType=null;
+  selection.boardFrom=null;
+  selection.legalTargets=[];
+  selection.mode=null;
+  // clear selected buttons
+  document.querySelectorAll(".invBtn").forEach(b=>b.classList.remove("selected"));
+}
+
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape") { clearSelection(); }
+});
+
+// ---------- Inventory UI ----------
+const invGrid = document.getElementById("invGrid");
+
+function miniHexSVG(fill, stroke, label, labelColor){
+  // Return SVG string
+  return `
+  <svg class="miniHex" viewBox="-40 -40 80 80" aria-hidden="true">
+    <defs>
+      <filter id="ds" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="0" dy="6" stdDeviation="3" flood-color="rgba(0,0,0,.25)"/>
+      </filter>
+    </defs>
+    <polygon filter="url(#ds)" points="${hexPoints(34)}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+    <circle cx="0" cy="-2" r="16" fill="${pieceAccent(label)}" opacity=".95"/>
+    <circle cx="0" cy="-2" r="12" fill="rgba(255,255,255,.85)"/>
+    <text x="0" y="-2" text-anchor="middle" dominant-baseline="middle" font-size="16" font-family="system-ui" font-weight="800" fill="${labelColor}">${label}</text>
+  </svg>`;
+}
+function hexPoints(rad){
+  const pts=[];
+  for(let i=0;i<6;i++){
+    const ang = (Math.PI/180)*(60*i-30);
+    pts.push([rad*Math.cos(ang), rad*Math.sin(ang)]);
+  }
+  return pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+}
+
+function renderInventory(){
+  invGrid.innerHTML="";
+  for(const pt of PIECES){
+    const cnt = state.inv[WHITE][pt];
+    const btn = document.createElement("div");
+    btn.className="invBtn";
+    btn.dataset.pt=pt;
+    btn.innerHTML = `
+      <div class="invLeft">
+        ${miniHexSVG("rgba(243,240,232,.98)","rgba(0,0,0,.20)", pt, "rgba(0,0,0,.78)")}
+        <div class="invName">
+          <span>${PIECE_NAMES[pt]}</span>
+          <em>${pt==="Q"?"1 step":" "}</em>
+        </div>
+      </div>
+      <div class="count">${cnt}</div>
+    `;
+
+    if(cnt<=0){
+      btn.style.opacity = .45;
+      btn.style.filter = "grayscale(.3)";
+      btn.style.pointerEvents = "none";
+    }
+
+    btn.addEventListener("click", ()=>{
+      if(state.turn!==WHITE) return;
+      clearSelection();
+      selection.invPieceType = pt;
+      selection.mode="place";
+      btn.classList.add("selected");
+      selection.legalTargets = legalPlacementsFor(state, WHITE);
+      if(mustPlaceQueenNow(state, WHITE) && pt!=="Q"){
+        toast("You must place your Queen this turn.");
+        clearSelection();
+        // auto-select queen
+        const queenBtn = [...document.querySelectorAll(".invBtn")].find(x=>x.dataset.pt==="Q");
+        if(queenBtn) queenBtn.click();
+        return;
+      }
+      if(mustPlaceQueenNow(state, WHITE) && pt==="Q"){
+        toast("Queen required this turn.");
+      }
+      draw();
+    });
+
+    invGrid.appendChild(btn);
+  }
+}
+
+// ---------- Board Interaction (pan/zoom/click) ----------
+let dragging=false;
+let dragStart=null;
+
+canvas.addEventListener("mousedown",(e)=>{
+  dragging=true;
+  dragStart={x:e.clientX, y:e.clientY, panX:view.panX, panY:view.panY};
+});
+window.addEventListener("mousemove",(e)=>{
+  if(!dragging) return;
+  const dx = e.clientX - dragStart.x;
+  const dy = e.clientY - dragStart.y;
+  view.panX = dragStart.panX + dx;
+  view.panY = dragStart.panY + dy;
+  draw();
+});
+window.addEventListener("mouseup",()=> dragging=false);
+
+canvas.addEventListener("wheel",(e)=>{
+  e.preventDefault();
+  const factor = Math.exp(-e.deltaY*0.0015);
+  const prev = view.scale;
+  view.scale = Math.max(28, Math.min(90, view.scale*factor));
+  // keep view stable-ish
+  const k = view.scale/prev;
+  view.panX *= k;
+  view.panY *= k;
+  draw();
+},{passive:false});
+
+canvas.addEventListener("click",(e)=>{
+  if(dragging) return;
+  if(state.turn!==WHITE) return;
+  const rect = canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const y=e.clientY-rect.top;
+  const hex = pixelToAxial(x,y);
+
+  handleBoardClick(hex);
+});
+
+function handleBoardClick(hex){
+  const [q,r]=hex;
+
+  // If click is on a highlighted target, execute
+  if(selection.legalTargets.some(t=> t[0]===q && t[1]===r)){
+    if(selection.mode==="place"){
+      const pt = selection.invPieceType;
+      if(!pt) return;
+      const mv = {kind:"place", color:WHITE, pieceType:pt, to:[q,r]};
+      const legal = legalMoves(state, WHITE).some(m=> sameMove(m,mv));
+      if(!legal){ toast("Illegal placement."); return; }
+      applyMove(state,mv);
+      clearSelection();
+      afterHumanMove();
+      return;
+    }
+    if(selection.mode==="move" && selection.boardFrom){
+      const mv = {kind:"move", color:WHITE, from:selection.boardFrom, to:[q,r]};
+      const legal = legalMoves(state, WHITE).some(m=> sameMove(m,mv));
+      if(!legal){ toast("Illegal move."); return; }
+      applyMove(state,mv);
+      clearSelection();
+      afterHumanMove();
+      return;
+    }
+  }
+
+  // Otherwise, try selecting a piece (for moving)
+  const st = stackAt(state,q,r);
+  if(st.length){
+    const top = st[st.length-1];
+    if(top.color!==WHITE){
+      toast("That’s not your piece.");
+      return;
+    }
+    if(!canMoveYet(state,WHITE)){
+      toast("You can’t move until your Queen is placed.");
+      return;
+    }
+    if(mustPlaceQueenNow(state,WHITE)){
+      toast("You must place your Queen this turn.");
+      return;
+    }
+
+    // compute legal move targets for this piece if it is movable
+    // must be top (it is)
+    if(!hiveConnectedIfRemoveTop(state,q,r)){
+      toast("Pinned by the One Hive rule (would split the hive).");
+      return;
+    }
+    const height = st.length-1;
+    const dests = legalDestinationsForPiece(state, {t:top.t,color:WHITE,height}, [q,r]);
+
+    clearSelection();
+    selection.mode="move";
+    selection.boardFrom=[q,r];
+    selection.legalTargets = dests;
+    draw();
+    return;
+  }
+
+  // Click empty: if in placement mode, show placements; else clear selection
+  if(selection.mode!=="place"){
+    clearSelection();
+    draw();
+  }
+}
+
+function sameMove(a,b){
+  if(a.kind!==b.kind) return false;
+  if(a.color!==b.color) return false;
+  if(a.kind==="place"){
+    return a.pieceType===b.pieceType && a.to[0]===b.to[0] && a.to[1]===b.to[1];
+  }else{
+    return a.from[0]===b.from[0] && a.from[1]===b.from[1] && a.to[0]===b.to[0] && a.to[1]===b.to[1];
+  }
+}
+
+function afterHumanMove(){
+  updateSidebar();
+  draw();
+
+  const res = gameResult(state);
+  if(res){
+    toast(res==="whiteWins" ? "You surrounded the Bot’s Queen!" :
+          res==="blackWins" ? "Your Queen is surrounded." : "Both Queens surrounded — draw.");
+    updateSidebar();
+    draw();
+    return;
+  }
+
+  // Bot turn
+  setTimeout(()=>{
+    botStep();
+  }, 40);
+}
+
+function botStep(){
+  if(state.turn!==BLACK) return;
+  const res = gameResult(state);
+  if(res) return;
+
+  const mv = chooseBotMove(state);
+  if(!mv){
+    toast("Bot has no legal moves.");
+    return;
+  }
+  applyMove(state,mv);
+
+  updateSidebar();
+  draw();
+
+  const r = gameResult(state);
+  if(r){
+    toast(r==="blackWins" ? "Bot surrounded your Queen." :
+          r==="whiteWins" ? "You win!" : "Draw.");
+    updateSidebar();
+    draw();
+  }
+}
+
+// ---------- Drawing highlights ----------
+function draw(){
+  resize();
+  ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+
+  // Subtle board “ghost hexes” around activity
+  const bounds = computeInterestingBounds(state, selection);
+  const pad = 4;
+  const minQ=bounds.minQ-pad, maxQ=bounds.maxQ+pad;
+  const minR=bounds.minR-pad, maxR=bounds.maxR+pad;
+
+  // draw faint grid
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  for(let r=minR; r<=maxR; r++){
+    for(let q=minQ; q<=maxQ; q++){
+      const [x,y]=axialToPixel(q,r);
+      const pts=hexPolygon(x,y,view.scale*0.92);
+      drawHex(pts, "transparent", "rgba(68,176,255,.35)", 1.5);
+    }
+  }
+  ctx.restore();
+
+  // highlights
+  if(selection.legalTargets.length){
+    for(const [q,r] of selection.legalTargets){
+      const [x,y]=axialToPixel(q,r);
+      const pts=hexPolygon(x,y,view.scale*0.92);
+      const fill = selection.mode==="place" ? "rgba(68,176,255,.12)" : "rgba(82,210,115,.12)";
+      const stroke = selection.mode==="place" ? "rgba(68,176,255,.90)" : "rgba(82,210,115,.92)";
+      drawHex(pts, fill, stroke, 3);
+    }
+  }
+
+  // selected from piece
+  if(selection.boardFrom){
+    const [q,r]=selection.boardFrom;
+    const [x,y]=axialToPixel(q,r);
+    const pts=hexPolygon(x,y,view.scale*0.92);
+    drawHex(pts, "rgba(255,178,77,.10)", "rgba(255,178,77,.95)", 3);
+  }
+
+  // pieces
+  // Draw ground tiles first; stacking is shown by label; we can draw all equally.
+  for(const [kk,stack] of state.board.entries()){
+    const [q,r]=parseKey(kk);
+    drawTileAt(q,r,stack);
+  }
+
+  // queen danger indicators
+  drawQueenDanger(WHITE);
+  drawQueenDanger(BLACK);
+}
+
+function computeInterestingBounds(state, selection){
+  let qs=[], rs=[];
+  for(const kk of state.board.keys()){
+    const [q,r]=parseKey(kk); qs.push(q); rs.push(r);
+  }
+  for(const [q,r] of selection.legalTargets){
+    qs.push(q); rs.push(r);
+  }
+  if(selection.boardFrom){
+    qs.push(selection.boardFrom[0]); rs.push(selection.boardFrom[1]);
+  }
+  if(qs.length===0){
+    return {minQ:-2,maxQ:2,minR:-2,maxR:2};
+  }
+  return {
+    minQ: Math.min(...qs),
+    maxQ: Math.max(...qs),
+    minR: Math.min(...rs),
+    maxR: Math.max(...rs),
+  };
+}
+
+function drawQueenDanger(color){
+  const qp = state.queens[color];
+  if(!qp) return;
+  const ring = neighbors(qp[0],qp[1]).filter(p=>isOccupied(state,p[0],p[1])).length;
+  const [x,y]=axialToPixel(qp[0],qp[1]);
+  ctx.save();
+  ctx.font="700 12px system-ui, sans-serif";
+  ctx.textAlign="center";
+  ctx.textBaseline="top";
+  const txt = `(${ring}/6)`;
+  ctx.fillStyle = ring>=5 ? "rgba(255,77,77,.95)" : "rgba(0,0,0,.55)";
+  if(color===BLACK) ctx.fillStyle = ring>=5 ? "rgba(255,77,77,.95)" : "rgba(255,255,255,.70)";
+  ctx.fillText(txt, x, y+view.scale*0.70);
+  ctx.restore();
+}
+
+// ---------- Buttons ----------
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  state = makeInitialState();
+  clearSelection();
+  updateSidebar();
+  toast("New game.");
+  draw();
+});
+document.getElementById("undoBtn").addEventListener("click", ()=>{
+  // Undo last full round if possible: undo bot ply then human ply
+  if(state.moveHistory.length===0) return;
+  // If it's bot turn, last move was human; undo one ply. If it's your turn, last move was bot; undo two plies if possible.
+  if(state.turn===WHITE){
+    // undo bot
+    undoLastPly(state);
+    // undo human if exists
+    undoLastPly(state);
+  }else{
+    // bot thinking -> undo human
+    undoLastPly(state);
+  }
+  clearSelection();
+  updateSidebar();
+  toast("Undone.");
+  draw();
+});
+
+// ---------- Start ----------
+updateSidebar();
+draw();
+
+// Optional: bot can start (set to BLACK) by flipping state.turn, but keeping standard: player starts.
+</script>
+</body>
+</html>
